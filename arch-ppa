@@ -1,3 +1,4 @@
+#!/bin/bash
 BASEDIR=$(cd $(dirname $0); pwd)
 CHROOT=$BASEDIR/chroot
 
