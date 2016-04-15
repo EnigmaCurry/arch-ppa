@@ -17,6 +17,7 @@ create_chroot() {
 	    exe mkdir $CHROOT
 	    exe mkarchroot $CHROOT/root base-devel
 	    # install cower:
+	    gpg --recv-keys --keyserver hkp://pgp.mit.edu 1EB2638FF56C0C53
     	    TMP_BUILD=`mktemp -d`
     	    exe cd $TMP_BUILD
 	    curl https://aur.archlinux.org/cgit/aur.git/snapshot/cower.tar.gz | tar xz
