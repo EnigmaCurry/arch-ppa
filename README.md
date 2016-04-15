@@ -14,19 +14,21 @@ reviewing the PKGBUILDs it downloads, in order to make sure it doesn't
 include things like viruses or trojans, or downloading from a weird
 URL.
 
-I wanted a way to maintain my own repository of PKGBUILDs, downloaded
-from the AUR, that I have manually verified. Building and installing
-packages built from those pre-verified PKGBUILDs resolves the
-insecurity of the AUR in my mind. This gives me the full power of the
+This tool builds packages from a directory tree of PKGBUILD files. The
+idea is that you put this directory into a version control system only
+after having verified the PKGBUILD files are correct and
+non-malicious. Additionally, the packages are signed with your own gpg
+key (and verified by the client on installation.) This resolves the
+insecurity of the AUR in my mind.  This gives me the full power of the
 AUR, but allows me to automate my package installs in a way that I
 never felt comfortable with before. Seriously, why does pacaur have a
-`--noconfirm` option? That's scary. 
+`--noconfirm` option? That's scary. Worse than 10 toolbars on your
+mother's web browser scary.
 
 The packages this tool builds can be hosted as a regular arch
-repository, which you put into your `/etc/pacman.conf`. The added
-convenience here is that although the packages came from the AUR, your
-clients install it through regular-old pacman.
-
+repository, either on your local filesystem or on a webserver. The
+added convenience here is that although the packages came from the
+AUR, your clients install it through regular-old pacman.
 
 Usage
 -----
@@ -83,7 +85,7 @@ individual package names after the repository name if you only wish to
 build certain packages. If you do specify package names, make sure to
 include all dependencies, as they will not be included otherwise.
 
-The repository directory can be listed in your /etc/pacman.conf like this:
+The repository directory can be listed in your `/etc/pacman.conf` like this:
 
     [ryan]
 	Server = file:///home/ryan/git/arch-ppa/ryan
