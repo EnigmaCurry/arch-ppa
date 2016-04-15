@@ -40,6 +40,7 @@ install_system_deps() {
 	}
 	pkg_dep devtools
 	pkg_dep git
+	pkg_dep findutils
     )
 }
 
@@ -137,10 +138,17 @@ update() {
     # Update a package and it's dependencies from the AUR
     (
 	set -e
-	if [ ! -d $basedir/src/$1 ]; then
-	   echo "No package called $1 found in src"
-	   return 1
+	if [ "$#" -eq 0 ]; then
+	    cd $basedir/src
+	    update *
+	    return
 	fi
+	for pkg in "$@"; do
+	    if [ ! -d $basedir/src/$pkg ]; then
+		echo "No package called $pkg found in src"
+		return 1
+	    fi
+	done
 	for pkg in "$@"; do
 	    check_in_git() {
 		(

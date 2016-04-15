@@ -84,6 +84,16 @@ packages in the correct order. Additionally, you can specify
 individual package names after the repository name if you only wish to
 build certain packages. 
 
+Update packages:
+
+    ./arch-ppa update [optional package names]
+	
+The update command will download new PKGBUILDs for the specified
+packages (or all if not specified.) The update will complain if you
+haven't added the existing packages to a git repository or have
+uncommited changes. Always review changes to PKGBUILD files before
+committing them. That's the point of this thing. Use `git diff src`.
+
 The repository directory can be listed in your `/etc/pacman.conf` like this:
 
     [ryan]
