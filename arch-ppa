@@ -39,6 +39,7 @@ install_system_deps() {
 	    fi
 	}
 	pkg_dep devtools
+	pkg_dep git
     )
 }
 
@@ -131,6 +132,45 @@ add() {
 	echo "## All requested packages added"
    )
 }
+
+update() {
+    # Update a package and it's dependencies from the AUR
+    (
+	set -e
+	if [ ! -d $basedir/src/$1 ]; then
+	   echo "No package called $1 found in src"
+	   return 1
+	fi
+	for pkg in "$@"; do
+	    check_in_git() {
+		(
+		    cd $basedir
+		    if (! git ls-files $1 --error-unmatch >/dev/null 2>&1); then
+			echo "$1 is not under git control yet. Add and commit it before updating."
+			return 1
+		    fi
+		)
+	    }
+	    check_in_git $basedir/src
+	    check_in_git $basedir/src/$pkg
+	    find_deps $pkg | while read dep; do
+		check_in_git $basedir/src/$dep
+	    done
+	    # Check if package has uncommited changes
+	    if [ $(git -C $basedir diff HEAD $basedir/src/$pkg | wc -l) -gt 0 ]; then
+		echo "Package $pkg has uncommited changes. Commit or discard those changes first."
+		return 1
+	    fi
+	    # Use a temporary dir to download all PKGBUILDS atomically
+            [ -z "$tmp_dl" ] && tmp_dl=`mktemp -d`
+            cd $tmp_dl
+            arch-nspawn $chroot/root --bind=$tmp_dl:/src cower -q -t /src -d -d $pkg >/dev/null 2>&1
+	    cp -a * $basedir/src
+	done
+	git -C $basedir diff --name-status $basedir/src/
+    )
+}
+
 
 list() {
     if [ "$#" -ne 1 ]; then
