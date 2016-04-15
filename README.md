@@ -82,8 +82,7 @@ whatever you called yours.) It finds PKGBUILD files in the `src`
 directory and figures out the dependency chain and builds all the
 packages in the correct order. Additionally, you can specify
 individual package names after the repository name if you only wish to
-build certain packages. If you do specify package names, make sure to
-include all dependencies, as they will not be included otherwise.
+build certain packages. 
 
 The repository directory can be listed in your `/etc/pacman.conf` like this:
 
