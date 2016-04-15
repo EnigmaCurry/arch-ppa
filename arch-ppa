@@ -1,0 +1,211 @@
+BASEDIR=$(cd $(dirname $0); pwd)
+CHROOT=$BASEDIR/chroot
+
+if [ `whoami` == 'root' ]; then
+   echo "Must not be run as root."
+   exit 1;
+fi
+
+exe() { echo "\$ $@" ; "$@" ; }
+
+create_chroot() {
+    (
+	set -e
+	if [ ! -d $CHROOT ]; then
+	    echo "## Creating arch chroot ..."
+	    exe mkdir $CHROOT
+	    exe mkarchroot $CHROOT/root base-devel
+	    # install cower:
+    	    TMP_BUILD=`mktemp -d`
+    	    exe cd $TMP_BUILD
+	    curl https://aur.archlinux.org/cgit/aur.git/snapshot/cower.tar.gz | tar xz
+	    exe cd cower
+	    exe makechrootpkg -r $CHROOT -l root -- -i
+	    exe rm -rf $TMP_BUILD
+	    echo "## Root chroot build complete."
+	fi
+    )
+}
+
+install_system_deps() {
+    (
+	set -e
+	pkg_dep() {
+	    if !(pacman -Q $1 > /dev/null 2>&1); then
+		echo "Installing $1..."
+		exe sudo pacman -S --noconfirm $1
+	    fi
+	}
+	pkg_dep devtools
+	pkg_dep git
+    )
+}
+
+package_build() {
+    # Build a package in a container. $1=container $2=package
+    # PKGBUILD must already exist in src/
+    # If package has dependencies we also maintain in src/, recursively build those first.
+    (
+	set -e
+	if [ "$#" -ne 2 ]; then
+	    echo "package_build takes two args: repo_name and package_name"
+	    return 1
+	fi
+	repo_name=$1
+	package_name=$2
+	setup
+	pkgdir=$BASEDIR/src/$package_name
+	if [ ! -d $pkgdir ]; then
+	    echo "Package $package_name not found in $pkgdir"
+	    echo "Try running: package_add $package_name"
+	    return 1
+	fi
+	if [ ! -f $pkgdir/PKGBUILD ]; then
+	    echo "Cannot find PKGBUILD in $pkgdir"
+	    return 1
+	fi
+	if (arch-nspawn $CHROOT/$repo_name pacman -Q $package_name > /dev/null 2>&1); then
+	    echo "Package $package_name already built"
+	    return
+	fi
+	# Find and build dependencies:
+	find_deps $package_name | while read dep; do
+	    # Build the dep if we haven't already yet:
+	    if !(arch-nspawn $CHROOT/$repo_name pacman -Q $dep > /dev/null 2>&1); then
+		package_build $repo_name $dep
+	    fi
+	done
+	# Build package:
+	cd $pkgdir
+	rm -f *.pkg.tar.xz
+	mkdir -p $BASEDIR/$repo_name
+	exe makechrootpkg -r $CHROOT -l $repo_name -- -i
+	exe mv *.pkg.tar.xz $BASEDIR/$repo_name
+    )
+}
+
+sign_packages() {
+    if [ "$#" -lt 1 ]; then
+	echo "sign_packages requires specifying the list of packages to sign"
+	return 1
+    fi
+    (
+	set -e
+	cd $(dirname $1)
+	for pkg in "$@"; do
+	    gpg --detach-sign --use-agent $pkg
+	done
+    )
+}
+
+find_deps() {
+    # Inspect package srcinfo and pull out the dependencies that we maintain in src
+    (
+	set -e
+	setup
+	cat $BASEDIR/src/$1/.SRCINFO | sed -nr 's/^\W*depends = ([-a-zA-Z0-9]+).*$/\1/p' | while read dep; do
+	    if [ -d $BASEDIR/src/$dep ]; then
+		echo $dep
+	    fi
+	done
+    )
+}
+
+add() {
+    # Add packages and their AUR dependencies to src
+    (
+	set -e
+	if [ "$#" -lt 1 ]; then
+	    echo "Must specify package(s) to add"
+	    return 1
+	fi
+	setup
+	if [ ! -d $BASEDIR/src ]; then
+	    mkdir $BASEDIR/src
+	fi
+	for pkg in "$@"; do
+	    arch-nspawn $CHROOT/root --bind=$BASEDIR/src:/src cower -q -t /src -d -d $pkg
+	done
+	sudo chown $USER -R $BASEDIR/src
+	echo "## All requested packages added"
+   )
+}
+
+list() {
+    if [ "$#" -ne 1 ]; then
+	echo "Must specify repository name to list"
+	return 1
+    fi
+    setup
+    arch-nspawn $CHROOT/$1 pacman -Qm
+}
+
+setup() {
+    mkdir -p $BASEDIR/src
+    install_system_deps
+    create_chroot
+}
+
+clean() {
+    (
+	set -e
+	if [ "$#" -lt 1 ]; then
+	    echo "Must specify repository names to clean"
+	    return 1
+	fi
+	for repo in "$@"; do
+	    # Clean repository and chroot
+	    if [ -d $BASEDIR/chroot/$repo ]; then
+		exe sudo rm -rf $BASEDIR/chroot/$repo $BASEDIR/chroot/$repo.lock
+	    fi
+	    if [ -d $BASEDIR/$repo ]; then
+		exe rm -rf $BASEDIR/$repo
+	    fi
+	done
+    )
+}
+
+build() {
+    (
+	set -e
+	if [ "$#" -lt 1 ]; then
+	    echo "Must specify repository name to build (and optional package list to include)"
+	    return 1
+	fi
+	setup
+	repo_name=$1
+	mkdir -p $BASEDIR/$repo_name
+	shift
+	if [ "$#" -gt 0 ]; then
+	    # Build only requested packages
+	    for pkg in "$@"; do
+		package_build $repo_name $pkg
+	    done
+	    echo "## All requested packages built"
+	else
+	    # Build all packages:
+	    cd $BASEDIR/src
+	    find -type d | sed 's/\.\///' | tail -n +2 | while read pkg; do
+		package_build $repo_name $pkg
+	    done
+	    echo "## All packages built"
+	fi
+	echo "## Updating repository database"
+	cd $BASEDIR/$repo_name
+	if [ `ls *.pkg.tar.xz 2> /dev/null | wc -l` -lt 1 ]; then
+	    echo "No packages found in $BASEDIR/$repo_name"
+	    return 1;
+	fi
+	sign_packages *.pkg.tar.xz
+	repo-add $repo_name.db.tar.gz *.pkg.tar.xz
+	sign_packages $repo_name.db
+    )
+}
+
+
+if [ "$#" -gt 0 ]; then
+    $*
+else
+    echo "Must specify a command, eg: add, build, list, clean"
+    exit 1
+fi
