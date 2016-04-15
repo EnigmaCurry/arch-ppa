@@ -2,16 +2,17 @@ arch-ppa
 ========
 
 arch-ppa is a tool that easily creates and maintains your own Arch
-package repositories. Kind of like the Personal Package Archives (PPA)
-that Ubuntu has, but way easier.
+Linux package repositories. Kind of like the Personal Package Archives
+(PPA) that Ubuntu has, but way easier.
 
-The Arch User Repository (AUR) is convenient, has tons of software, is
-generally awesome, but is inherently insecure. Anyone can upload
-anything they want to the AUR. This is why I don't like to use AUR
-helpers like `yaourt` or `pacaur`. Using the AUR with a helper
-requires you to be diligent in reviewing the PKGBUILDs it downloads,
-in order to make sure it doesn't include things like viruses or
-trojans, or downloading from a weird URL.
+The [Arch User Repository](https://aur.archlinux.org/) (AUR) is
+convenient, has tons of software, is generally awesome, but is
+inherently insecure. Anyone can upload anything they want to the
+AUR. This is why I don't like to use AUR helpers like `yaourt` or
+`pacaur`. Using the AUR with a helper requires you to be diligent in
+reviewing the PKGBUILDs it downloads, in order to make sure it doesn't
+include things like viruses or trojans, or downloading from a weird
+URL.
 
 I wanted a way to maintain my own repository of PKGBUILDs, downloaded
 from the AUR, that I have manually verified. Building and installing
