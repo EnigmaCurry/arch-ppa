@@ -39,7 +39,6 @@ install_system_deps() {
 	    fi
 	}
 	pkg_dep devtools
-	pkg_dep git
     )
 }
 

@@ -45,7 +45,7 @@ Run setup:
 
     ./arch-ppa setup
 
-The setup installs a few dependencies like `devtools` and `git`. It
+The setup installs a few dependencies like `devtools`. It
 also creates a chroot directory which is a container that will be used
 to build packages in a completely clean environment using
 `systemd-nspawn`.
