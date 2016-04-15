@@ -33,8 +33,10 @@ Usage
 Clone this repo somewhere. Everything will be self contained in this
 directory wherever you put it.
 
-arch-ppa should not be run as root, but the user that does run it does
-need sudo privileges as the underlying devtools need it.
+arch-ppa should not be run as root, but the user needs to have sudo
+privileges as the underlying devtools need it. (If you know how to
+make arch-nspawn create files with the current uid, please let me
+know.)
 
 Run setup:
 
@@ -51,8 +53,8 @@ Add packages from the AUR:
 	
 This downloads PKGBUILDs from the AUR for the listed packages: cower,
 curlbomb, pasystray, as well as all of their AUR dependencies, and
-placed into the `src` directory. You can put PKGBUILDs from other
-sources in the src directory too; they don't have to be from the
+placed into the `src` directory. You can manually put any PKGBUILDs
+you have into the `src` directory; they don't have to be from the
 AUR. Note that any PKGBUILD that lists a dependency of another
 package, that is not found in one of the arch repositories, needs to
 have it's own PKGBUILD in the `src` directory too. (The `add` command
@@ -86,16 +88,20 @@ The repository directory can be listed in your /etc/pacman.conf like this:
 	Server = file:///home/ryan/git/arch-ppa/ryan
 	SigLevel = Required TrustedOnly
 	
-This is the full path to the ryan repository just created. Run `pacman
--Sy` and you should see pacman synchronize with the new repository
-name. Alternatively, upload the directory to a webserver and share it
-with all your friends.
+This is the full path to the ryan repository just created. Replace the
+name in brackets with your chosen repository name and use the path
+appropriate for your machine. Run `pacman -Sy` and you should see
+pacman synchronize with the new repository name. Alternatively, upload
+the directory to a webserver to share it with all your friends.
 
 The SigLevel option specifies how pacman should trust our
 repository. `Required TruestedOnly` is a strict rule that the key must
 be in the local pacman keyring and be assigned a trust level. Pacman
 will usually download the key without a problem, but you will still
-need to locally sign the key to trust it.
+need to locally sign the key to trust it. 
+
+See the next section if you're having problems with package signatures
+not working.
 
 Mini gpg tutorial
 -----------------
@@ -113,7 +119,8 @@ This should output something like this:
 
 My public key ID is 4BAACCF8. Always omit the part before the
 slash. If it didn't output any key information at all, this means you
-don't have a key yet. Create one and follow the prompts:
+don't have a key yet. If that's the case, create one and follow the
+prompts:
 
     gpg --gen-key
 
@@ -121,9 +128,9 @@ Send your public key to the keyserver (replace with your ID):
 
     gpg --send-keys 4BAACCF8
 
-On each machine you will use your package repository, run the
-following to import the key and to locally sign (assign trust) the
-key (again, replace with your key ID):
+On each machine you plan to use your package repository, run the
+following to import the key and to locally sign it (meaning to trust
+it from pacman's perspective. Like before, replace with your key ID):
 
     sudo pacman-key -r 4BAACCF8
 	sudo pacman-key --lsign-key 4BAACCF8
