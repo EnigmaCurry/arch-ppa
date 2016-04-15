@@ -1,6 +1,6 @@
 #!/bin/bash
-BASEDIR=$(cd $(dirname $0); pwd)
-CHROOT=$BASEDIR/chroot
+basedir=$(cd $(dirname $0); pwd)
+chroot=$basedir/chroot
 
 if [ `whoami` == 'root' ]; then
    echo "Must not be run as root."
@@ -12,17 +12,17 @@ exe() { echo "\$ $@" ; "$@" ; }
 create_chroot() {
     (
 	set -e
-	if [ ! -d $CHROOT ]; then
+	if [ ! -d $chroot ]; then
 	    echo "## Creating arch chroot ..."
-	    exe mkdir $CHROOT
-	    exe mkarchroot $CHROOT/root base-devel
+	    exe mkdir $chroot
+	    exe mkarchroot $chroot/root base-devel
 	    # install cower:
 	    gpg --recv-keys --keyserver hkp://pgp.mit.edu 1EB2638FF56C0C53
     	    TMP_BUILD=`mktemp -d`
     	    exe cd $TMP_BUILD
 	    curl https://aur.archlinux.org/cgit/aur.git/snapshot/cower.tar.gz | tar xz
 	    exe cd cower
-	    exe makechrootpkg -r $CHROOT -l root -- -i
+	    exe makechrootpkg -r $chroot -l root -- -i
 	    exe rm -rf $TMP_BUILD
 	    echo "## Root chroot build complete."
 	fi
@@ -55,7 +55,7 @@ package_build() {
 	repo_name=$1
 	package_name=$2
 	setup
-	pkgdir=$BASEDIR/src/$package_name
+	pkgdir=$basedir/src/$package_name
 	if [ ! -d $pkgdir ]; then
 	    echo "Package $package_name not found in $pkgdir"
 	    echo "Try running: package_add $package_name"
@@ -65,23 +65,23 @@ package_build() {
 	    echo "Cannot find PKGBUILD in $pkgdir"
 	    return 1
 	fi
-	if (arch-nspawn $CHROOT/$repo_name pacman -Q $package_name > /dev/null 2>&1); then
+	if (arch-nspawn $chroot/$repo_name pacman -Q $package_name > /dev/null 2>&1); then
 	    echo "Package $package_name already built"
 	    return
 	fi
 	# Find and build dependencies:
 	find_deps $package_name | while read dep; do
 	    # Build the dep if we haven't already yet:
-	    if !(arch-nspawn $CHROOT/$repo_name pacman -Q $dep > /dev/null 2>&1); then
+	    if !(arch-nspawn $chroot/$repo_name pacman -Q $dep > /dev/null 2>&1); then
 		package_build $repo_name $dep
 	    fi
 	done
 	# Build package:
 	cd $pkgdir
 	rm -f *.pkg.tar.xz
-	mkdir -p $BASEDIR/$repo_name
-	exe makechrootpkg -r $CHROOT -l $repo_name -- -i
-	exe mv *.pkg.tar.xz $BASEDIR/$repo_name
+	mkdir -p $basedir/$repo_name
+	exe makechrootpkg -r $chroot -l $repo_name -- -i
+	exe mv *.pkg.tar.xz $basedir/$repo_name
     )
 }
 
@@ -104,8 +104,8 @@ find_deps() {
     (
 	set -e
 	setup
-	cat $BASEDIR/src/$1/.SRCINFO | sed -nr 's/^\W*depends = ([-a-zA-Z0-9]+).*$/\1/p' | while read dep; do
-	    if [ -d $BASEDIR/src/$dep ]; then
+	cat $basedir/src/$1/.SRCINFO | sed -nr 's/^\W*depends = ([-a-zA-Z0-9]+).*$/\1/p' | while read dep; do
+	    if [ -d $basedir/src/$dep ]; then
 		echo $dep
 	    fi
 	done
@@ -121,13 +121,13 @@ add() {
 	    return 1
 	fi
 	setup
-	if [ ! -d $BASEDIR/src ]; then
-	    mkdir $BASEDIR/src
+	if [ ! -d $basedir/src ]; then
+	    mkdir $basedir/src
 	fi
 	for pkg in "$@"; do
-	    arch-nspawn $CHROOT/root --bind=$BASEDIR/src:/src cower -q -t /src -d -d $pkg
+	    arch-nspawn $chroot/root --bind=$basedir/src:/src cower -q -t /src -d -d $pkg
 	done
-	sudo chown $USER -R $BASEDIR/src
+	sudo chown $USER -R $basedir/src
 	echo "## All requested packages added"
    )
 }
@@ -138,11 +138,11 @@ list() {
 	return 1
     fi
     setup
-    arch-nspawn $CHROOT/$1 pacman -Qm
+    arch-nspawn $chroot/$1 pacman -Qm
 }
 
 setup() {
-    mkdir -p $BASEDIR/src
+    mkdir -p $basedir/src
     install_system_deps
     create_chroot
 }
@@ -156,11 +156,11 @@ clean() {
 	fi
 	for repo in "$@"; do
 	    # Clean repository and chroot
-	    if [ -d $BASEDIR/chroot/$repo ]; then
-		exe sudo rm -rf $BASEDIR/chroot/$repo $BASEDIR/chroot/$repo.lock
+	    if [ -d $basedir/chroot/$repo ]; then
+		exe sudo rm -rf $basedir/chroot/$repo $basedir/chroot/$repo.lock
 	    fi
-	    if [ -d $BASEDIR/$repo ]; then
-		exe rm -rf $BASEDIR/$repo
+	    if [ -d $basedir/$repo ]; then
+		exe rm -rf $basedir/$repo
 	    fi
 	done
     )
@@ -175,7 +175,7 @@ build() {
 	fi
 	setup
 	repo_name=$1
-	mkdir -p $BASEDIR/$repo_name
+	mkdir -p $basedir/$repo_name
 	shift
 	if [ "$#" -gt 0 ]; then
 	    # Build only requested packages
@@ -185,16 +185,16 @@ build() {
 	    echo "## All requested packages built"
 	else
 	    # Build all packages:
-	    cd $BASEDIR/src
+	    cd $basedir/src
 	    find -type d | sed 's/\.\///' | tail -n +2 | while read pkg; do
 		package_build $repo_name $pkg
 	    done
 	    echo "## All packages built"
 	fi
 	echo "## Updating repository database"
-	cd $BASEDIR/$repo_name
+	cd $basedir/$repo_name
 	if [ `ls *.pkg.tar.xz 2> /dev/null | wc -l` -lt 1 ]; then
-	    echo "No packages found in $BASEDIR/$repo_name"
+	    echo "No packages found in $basedir/$repo_name"
 	    return 1;
 	fi
 	sign_packages *.pkg.tar.xz
