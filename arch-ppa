@@ -34,8 +34,10 @@ install_system_deps() {
 	set -e
 	pkg_dep() {
 	    if !(pacman -Q $1 > /dev/null 2>&1); then
-		echo "Installing $1..."
-		exe sudo pacman -S --noconfirm $1
+	    	if !(pacman -Qsq ^$1\$ > /dev/null); then
+			echo "Installing $1..."
+			exe sudo pacman -S --noconfirm $1
+		fi
 	    fi
 	}
 	pkg_dep devtools
