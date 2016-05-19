@@ -47,7 +47,9 @@ know.)
 
 Run setup:
 
-    arch-ppa setup
+    arch-ppa setup [optional directory path] 	# Directory path won't be
+    						# permanent until you add it
+    						# to your shell config file
 
 The setup installs a few dependencies like `devtools`. It
 also creates a chroot directory which is a container that will be used
@@ -66,6 +68,14 @@ AUR. Note that any PKGBUILD that lists a dependency of another
 package, that is not found in one of the arch repositories, needs to
 have it's own PKGBUILD in the `src` directory too. (The `add` command
 does this for you automatically, thanks to `cower -d -d`)
+
+Remove packages from your src/ folder:
+
+    arch-ppa rm cower curlbomb pasystray
+    
+Simple way to remove a package added but decided against building. If
+this was already built, make sure to remove from your repo or `arch-ppa clean ryan`
+before using your repo again! Just in case you built a nasty package.
 
 Build everything:
 
