@@ -1,6 +1,4 @@
 #!/bin/bash
-basedir=$(cd $(dirname $0); pwd)
-chroot=$basedir/chroot
 
 if [ `whoami` == 'root' ]; then
    echo "Must not be run as root."
@@ -9,20 +7,28 @@ fi
 
 exe() { echo "\$ $@" ; "$@" ; }
 
+var() {
+  if [ -z "$PPADIR" ]; then
+    export PPADIR=$HOME/.arch-ppa
+  fi
+  basedir=$PPADIR
+  chroot=${basedir}/chroot
+}
+
 create_chroot() {
     (
 	set -e
-	if [ ! -d $chroot ]; then
+	if [ ! -d ${chroot} ]; then
 	    echo "## Creating arch chroot ..."
-	    exe mkdir $chroot
-	    exe mkarchroot $chroot/root base-devel
+	    exe mkdir ${chroot}
+	    exe mkarchroot ${chroot}/root base-devel
 	    # install cower:
 	    gpg --recv-keys --keyserver hkp://pgp.mit.edu 1EB2638FF56C0C53
     	    TMP_BUILD=`mktemp -d`
     	    exe cd $TMP_BUILD
 	    curl https://aur.archlinux.org/cgit/aur.git/snapshot/cower.tar.gz | tar xz
 	    exe cd cower
-	    exe makechrootpkg -r $chroot -l root -- -i
+	    exe makechrootpkg -r ${chroot} -l root -- -i
 	    exe rm -rf $TMP_BUILD
 	    echo "## Root chroot build complete."
 	fi
@@ -57,33 +63,33 @@ package_build() {
 	repo_name=$1
 	package_name=$2
 	setup
-	pkgdir=$basedir/src/$package_name
-	if [ ! -d $pkgdir ]; then
-	    echo "Package $package_name not found in $pkgdir"
-	    echo "Try running: package_add $package_name"
+	pkgdir=${basedir}/src/${package_name}
+	if [ ! -d ${pkgdir} ]; then
+	    echo "Package ${package_name} not found in ${pkgdir}"
+	    echo "Try running: package_add ${package_name}"
 	    return 1
 	fi
-	if [ ! -f $pkgdir/PKGBUILD ]; then
-	    echo "Cannot find PKGBUILD in $pkgdir"
+	if [ ! -f ${pkgdir}/PKGBUILD ]; then
+	    echo "Cannot find PKGBUILD in ${pkgdir}"
 	    return 1
 	fi
-	if (arch-nspawn $chroot/$repo_name pacman -Q $package_name > /dev/null 2>&1); then
-	    echo "Package $package_name already built"
+	if (arch-nspawn ${chroot}/${repo_name} pacman -Q ${package_name} > /dev/null 2>&1); then
+	    echo "Package ${package_name} already built"
 	    return
 	fi
 	# Find and build dependencies:
-	find_deps $package_name | while read dep; do
+	find_deps ${package_name} | while read dep; do
 	    # Build the dep if we haven't already yet:
-	    if !(arch-nspawn $chroot/$repo_name pacman -Q $dep > /dev/null 2>&1); then
-		package_build $repo_name $dep
+	    if !(arch-nspawn ${chroot}/${repo_name} pacman -Q ${dep} > /dev/null 2>&1); then
+		package_build ${repo_name} ${dep}
 	    fi
 	done
 	# Build package:
-	cd $pkgdir
+	cd ${pkgdir}
 	rm -f *.pkg.tar.xz
-	mkdir -p $basedir/$repo_name
-	exe makechrootpkg -r $chroot -l $repo_name -- -i
-	exe mv *.pkg.tar.xz $basedir/$repo_name
+	mkdir -p ${basedir}/${repo_name}
+	exe makechrootpkg -r ${chroot} -l ${repo_name} -- -i
+	exe mv *.pkg.tar.xz ${basedir}/${repo_name}
     )
 }
 
@@ -96,7 +102,7 @@ sign_packages() {
 	set -e
 	cd $(dirname $1)
 	for pkg in "$@"; do
-	    gpg --detach-sign --use-agent $pkg
+	    gpg --detach-sign --use-agent ${pkg}
 	done
     )
 }
@@ -106,9 +112,9 @@ find_deps() {
     (
 	set -e
 	setup
-	cat $basedir/src/$1/.SRCINFO | sed -nr 's/^\W*depends = ([-a-zA-Z0-9]+).*$/\1/p' | while read dep; do
-	    if [ -d $basedir/src/$dep ]; then
-		echo $dep
+	cat ${basedir}/src/$1/.SRCINFO | sed -nr 's/^\W*depends = ([-a-zA-Z0-9]+).*$/\1/p' | while read dep; do
+	    if [ -d ${basedir}/src/${dep} ]; then
+		echo ${dep}
 	    fi
 	done
     )
@@ -123,13 +129,13 @@ add() {
 	    return 1
 	fi
 	setup
-	if [ ! -d $basedir/src ]; then
-	    mkdir $basedir/src
+	if [ ! -d ${basedir}/src ]; then
+	    mkdir ${basedir}/src
 	fi
 	for pkg in "$@"; do
-	    arch-nspawn $chroot/root --bind=$basedir/src:/src cower -q -t /src -d -d $pkg
+	    arch-nspawn ${chroot}/root --bind=${basedir}/src:/src cower -q -t /src -d -d ${pkg}
 	done
-	sudo chown $USER -R $basedir/src
+	sudo chown $USER -R ${basedir}/src
 	echo "## All requested packages added"
    )
 }
@@ -139,43 +145,43 @@ update() {
     (
 	set -e
 	if [ "$#" -eq 0 ]; then
-	    cd $basedir/src
+	    cd ${basedir}/src
 	    update *
 	    return
 	fi
 	for pkg in "$@"; do
-	    if [ ! -d $basedir/src/$pkg ]; then
-		echo "No package called $pkg found in src"
+	    if [ ! -d ${basedir}/src/${pkg} ]; then
+		echo "No package called ${pkg} found in src"
 		return 1
 	    fi
 	done
 	for pkg in "$@"; do
 	    check_in_git() {
 		(
-		    cd $basedir
+		    cd ${basedir}
 		    if (! git ls-files $1 --error-unmatch >/dev/null 2>&1); then
 			echo "$1 is not under git control yet. Add and commit it before updating."
 			return 1
 		    fi
 		)
 	    }
-	    check_in_git $basedir/src
-	    check_in_git $basedir/src/$pkg
-	    find_deps $pkg | while read dep; do
-		check_in_git $basedir/src/$dep
+	    check_in_git ${basedir}/src
+	    check_in_git ${basedir}/src/${pkg}
+	    find_deps ${pkg} | while read dep; do
+		check_in_git ${basedir}/src/${dep}
 	    done
 	    # Check if package has uncommited changes
-	    if [ $(git -C $basedir diff HEAD $basedir/src/$pkg | wc -l) -gt 0 ]; then
-		echo "Package $pkg has uncommited changes. Commit or discard those changes first."
+	    if [ $(git -C ${basedir} diff HEAD ${basedir}/src/${pkg} | wc -l) -gt 0 ]; then
+		echo "Package ${pkg} has uncommited changes. Commit or discard those changes first."
 		return 1
 	    fi
 	    # Use a temporary dir to download all PKGBUILDS atomically
             [ -z "$tmp_dl" ] && tmp_dl=`mktemp -d`
             cd $tmp_dl
-            arch-nspawn $chroot/root --bind=$tmp_dl:/src cower -q -t /src -d -d $pkg >/dev/null 2>&1
-	    cp -a * $basedir/src
+            arch-nspawn ${chroot}/root --bind=$tmp_dl:/src cower -q -t /src -d -d ${pkg} >/dev/null 2>&1
+	    cp -a * ${basedir}/src
 	done
-	git -C $basedir diff --name-status $basedir/src/
+	git -C ${basedir} diff --name-status ${basedir}/src/
     )
 }
 
@@ -186,13 +192,17 @@ list() {
 	return 1
     fi
     setup
-    arch-nspawn $chroot/$1 pacman -Qm
+    arch-nspawn ${chroot}/$1 pacman -Qm
 }
 
 setup() {
-    mkdir -p $basedir/src
-    install_system_deps
-    create_chroot
+  if [ $# -eq 1 ]; then
+    export PPADIR=$1
+    var
+  fi
+  mkdir -p ${basedir}/src
+  install_system_deps
+  create_chroot
 }
 
 clean() {
@@ -204,11 +214,11 @@ clean() {
 	fi
 	for repo in "$@"; do
 	    # Clean repository and chroot
-	    if [ -d $basedir/chroot/$repo ]; then
-		exe sudo rm -rf $basedir/chroot/$repo $basedir/chroot/$repo.lock
+	    if [ -d ${basedir}/chroot/${repo} ]; then
+		exe sudo rm -rf ${basedir}/chroot/${repo} ${basedir}/chroot/${repo}.lock
 	    fi
-	    if [ -d $basedir/$repo ]; then
-		exe rm -rf $basedir/$repo
+	    if [ -d ${basedir}/${repo} ]; then
+		exe rm -rf ${basedir}/${repo}
 	    fi
 	done
     )
@@ -223,38 +233,47 @@ build() {
 	fi
 	setup
 	repo_name=$1
-	mkdir -p $basedir/$repo_name
+	mkdir -p ${basedir}/${repo_name}
 	shift
 	if [ "$#" -gt 0 ]; then
 	    # Build only requested packages
 	    for pkg in "$@"; do
-		package_build $repo_name $pkg
+		package_build ${repo_name} ${pkg}
 	    done
 	    echo "## All requested packages built"
 	else
 	    # Build all packages:
-	    cd $basedir/src
+	    cd ${basedir}/src
 	    find -type d | sed 's/\.\///' | tail -n +2 | while read pkg; do
-		package_build $repo_name $pkg
+		package_build ${repo_name} ${pkg}
 	    done
 	    echo "## All packages built"
 	fi
 	echo "## Updating repository database"
-	cd $basedir/$repo_name
+	cd ${basedir}/${repo_name}
 	if [ `ls *.pkg.tar.xz 2> /dev/null | wc -l` -lt 1 ]; then
-	    echo "No packages found in $basedir/$repo_name"
+	    echo "No packages found in ${basedir}/${repo_name}"
 	    return 1;
 	fi
 	sign_packages *.pkg.tar.xz
-	repo-add $repo_name.db.tar.gz *.pkg.tar.xz
-	sign_packages $repo_name.db
+	repo-add ${repo_name}.db.tar.gz *.pkg.tar.xz
+	sign_packages ${repo_name}.db
     )
 }
 
 
 if [ "$#" -gt 0 ]; then
-    $*
+    var
+    "$@"
 else
-    echo "Must specify a command, eg: add, build, list, clean"
+  echo "Usage: $0 [command]"
+  echo "Commands: setup, add, update, build, clean"
+  echo "Example: $0 setup [pathname | default: \$HOME/.arch-ppa]"
+  echo "Example: $0 add [package1 package2 ...]"
+  echo "Example: $0 update [package1 package2 ... | default: ALL]"
+  echo "Example: $0 build [reponame]"
+  echo "Example: $0 clean [reponame]"
+  echo "Documentaion: https://github.com/EnigmaCurry/arch-ppa"
+  exit 1
     exit 1
 fi
