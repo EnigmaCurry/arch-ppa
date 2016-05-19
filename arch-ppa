@@ -9,7 +9,8 @@ exe() { echo "\$ $@" ; "$@" ; }
 
 var() {
   if [ -z "$PPADIR" ]; then
-    export PPADIR=$HOME/.arch-ppa
+    basedir=$HOME/.arch-ppa
+    chroot=${basedir}/chroot
   fi
   basedir=$PPADIR
   chroot=${basedir}/chroot
@@ -136,8 +137,26 @@ add() {
 	    arch-nspawn ${chroot}/root --bind=${basedir}/src:/src cower -q -t /src -d -d ${pkg}
 	done
 	sudo chown $USER -R ${basedir}/src
+  cd ${basedir}
+  git add src/
+  git commit -m "Package(s) $@ added to src/"
 	echo "## All requested packages added"
    )
+}
+
+rm() {
+  # Remove a package from src/
+  if [ "$#" -lt 1 ]; then
+	    echo "Must specify package(s) to remove"
+	    return 1
+	fi
+  for pkg in "$@"; do
+    cd ${basedir}
+    git rm -r src/${pkg}
+  done
+  git commit -m "Package(s) $@ removed from src/"
+	echo "## All requested packages removed from src/"
+  echo "## Make sure you run arch-ppa clean <repo> if removed packages were already built"
 }
 
 update() {
@@ -182,6 +201,9 @@ update() {
 	    cp -a * ${basedir}/src
 	done
 	git -C ${basedir} diff --name-status ${basedir}/src/
+  cd ${basedir}
+  git add src/${pkg}
+  git commit -m "Package ${pkg} updated in src/"
     )
 }
 
@@ -197,8 +219,23 @@ list() {
 
 setup() {
   if [ $# -eq 1 ]; then
+    echo "Creating PPADIR environment variable..."
     export PPADIR=$1
     var
+  fi
+  if [ ! -d ${basedir}/.git ]; then
+    echo "Putting ${basedir} under git control..."
+    cd ${basedir}
+    git init
+    git config user.name "arch-ppa Robot"
+  fi
+  if [ ! -f ${basedir}/.gitignore ]; then
+    echo "Creating .gitignore..."
+    touch ${basedir}/.gitignore
+    echo ".gitignore" >> ${basedir}/.gitignore
+    echo "chroot/" >> ${basedir}/.gitignore
+    echo >> ${basedir}/.gitignore
+    echo "# repos" >> ${basedir}/.gitignore
   fi
   mkdir -p ${basedir}/src
   install_system_deps
@@ -233,6 +270,7 @@ build() {
 	fi
 	setup
 	repo_name=$1
+  echo "${repo_name}/" >> ${basedir}/.gitignore
 	mkdir -p ${basedir}/${repo_name}
 	shift
 	if [ "$#" -gt 0 ]; then
