@@ -33,8 +33,12 @@ AUR, your clients install it through regular-old pacman.
 Usage
 -----
 
-Clone this repo somewhere. Everything will be self contained in this
-directory wherever you put it.
+Clone this repo somewhere. I recommend linking `arch-ppa` to your 
+`/usr/bin` folder for easy access, i.e: 
+`sudo ln -s ~/git/arch-ppa/arch-ppa /usr/bin/arch-ppa`
+
+By default, your arch-ppa folder is in `~/.arch-ppa` but can be 
+changed by modifying the `$PPADIR` environment variable.
 
 arch-ppa should not be run as root, but the user needs to have sudo
 privileges as the underlying devtools need it. (If you know how to
@@ -43,7 +47,7 @@ know.)
 
 Run setup:
 
-    ./arch-ppa setup
+    arch-ppa setup
 
 The setup installs a few dependencies like `devtools`. It
 also creates a chroot directory which is a container that will be used
@@ -52,7 +56,7 @@ to build packages in a completely clean environment using
 
 Add packages from the AUR:
 
-    ./arch-ppa add cower curlbomb pasystray
+    arch-ppa add cower curlbomb pasystray
 	
 This downloads PKGBUILDs from the AUR for the listed packages: cower,
 curlbomb, pasystray, as well as all of their AUR dependencies, and
@@ -65,8 +69,8 @@ does this for you automatically, thanks to `cower -d -d`)
 
 Build everything:
 
-    ./arch-ppa clean ryan
-    ./arch-ppa build ryan
+    arch-ppa clean ryan
+    arch-ppa build ryan
 
 The build process operates on a single repository, in this example
 called `ryan`. You can maintain several repositories, each containing
@@ -86,7 +90,7 @@ build certain packages.
 
 Update packages:
 
-    ./arch-ppa update [optional package names]
+    arch-ppa update [optional package names]
 	
 The update command will download new PKGBUILDs for the specified
 packages (or all if not specified.) The update will complain if you
