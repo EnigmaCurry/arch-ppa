@@ -82,7 +82,7 @@ package_build() {
   find_deps ${package_name} | while read dep; do
       # Build the dep if we haven't already yet:
       if !(arch-nspawn ${chroot}/${repo_name} pacman -Q ${dep} > /dev/null 2>&1); then
-    package_build ${repo_name} ${dep}
+        package_build ${repo_name} ${dep}
       fi
   done
   # Build package:
@@ -144,7 +144,7 @@ add() {
    )
 }
 
-rm() {
+remove() {
   # Remove a package from src/
   if [ "$#" -lt 1 ]; then
       echo "Must specify package(s) to remove"
@@ -273,17 +273,17 @@ build() {
   echo "${repo_name}/" >> ${basedir}/.gitignore
   mkdir -p ${basedir}/${repo_name}
   shift
-  if [ "$#" -gt 0 ]; then
+  if [ "$#" -gt 1 ]; then
       # Build only requested packages
       for pkg in "$@"; do
-    package_build ${repo_name} ${pkg}
+        package_build ${repo_name} ${pkg}
       done
       echo "## All requested packages built"
   else
       # Build all packages:
-      cd ${basedir}/src
+      cd ${basedir}/src/
       find -type d | sed 's/\.\///' | tail -n +2 | while read pkg; do
-    package_build ${repo_name} ${pkg}
+        package_build ${repo_name} ${pkg}
       done
       echo "## All packages built"
   fi
@@ -313,5 +313,4 @@ else
   echo "Example: $0 clean [reponame]"
   echo "Documentaion: https://github.com/EnigmaCurry/arch-ppa"
   exit 1
-    exit 1
 fi
