@@ -197,20 +197,27 @@ setup() {
 
 clean() {
     (
-	set -e
-	if [ "$#" -lt 1 ]; then
-	    echo "Must specify repository names to clean"
-	    return 1
-	fi
-	for repo in "$@"; do
-	    # Clean repository and chroot
-	    if [ -d $basedir/chroot/$repo ]; then
-		exe sudo rm -rf $basedir/chroot/$repo $basedir/chroot/$repo.lock
-	    fi
-	    if [ -d $basedir/$repo ]; then
-		exe rm -rf $basedir/$repo
-	    fi
-	done
+        set -e
+        if [ "$#" -lt 1 ]; then
+            echo "Must specify repository names to clean"
+            return 1
+        fi
+        for repo in "$@"; do
+            # Clean repository and chroot
+            if [ -d $basedir/chroot/$repo ]; then
+            # Test if chroot uses BTRFS and remove using btrfs subvolume delete
+                if [ `stat --format=%i $basedir/chroot/$repo` -eq 256 ] && [ `stat -f --format=%T $basedir/chroot/$repo` ] ; then
+                    exe sudo btrfs subvolume delete $basedir/chroot/$repo
+                    exe sudo rm $basedir/chroot/$repo.lock
+            # Otherwise delete using rm
+                else
+                    exe sudo rm -rf $basedir/chroot/$repo $basedir/chroot/$repo.lock
+                fi
+            fi
+            if [ -d $basedir/$repo ]; then
+                exe rm -rf $basedir/$repo
+            fi
+        done
     )
 }
 
